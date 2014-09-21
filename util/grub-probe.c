@@ -27,7 +27,6 @@
 #include <grub/fs.h>
 #include <grub/partition.h>
 #include <grub/msdos_partition.h>
-#include <grub/gpt_partition.h>
 #include <grub/emu/hostdisk.h>
 #include <grub/emu/getroot.h>
 #include <grub/term.h>
@@ -250,6 +249,25 @@ probe_abstraction (grub_disk_t disk, char delim)
     printf ("raid5rec%c", delim);
   if (raid_level == 6)
     printf ("raid6rec%c", delim);
+}
+
+static void
+probe_partition_type(grub_disk_t disk, const char *partmap, char delim)
+{
+  char *type;
+
+  if (!disk->partition || !disk->partition->partmap->type ||
+      strcmp(disk->partition->partmap->name, partmap) != 0)
+    {
+      putchar (delim);
+      return;
+    }
+
+  if (disk->partition->partmap->type(disk, disk->partition, &type))
+    grub_util_error ("%s", grub_errmsg);
+
+  printf ("%s%c", type, delim);
+  free(type);
 }
 
 static void
@@ -653,44 +671,14 @@ probe (const char *path, char **device_names, char delim)
 
       if (print == PRINT_MSDOS_PARTTYPE)
 	{
-	  if (dev->disk->partition
-	      && strcmp(dev->disk->partition->partmap->name, "msdos") == 0)
-	    printf ("%02x", dev->disk->partition->msdostype);
-
-	  putchar (delim);
+	  probe_partition_type(dev->disk, "msdos", delim);
 	  grub_device_close (dev);
 	  continue;
 	}
 
       if (print == PRINT_GPT_PARTTYPE)
 	{
-          if (dev->disk->partition
-	      && strcmp (dev->disk->partition->partmap->name, "gpt") == 0)
-            {
-              struct grub_gpt_partentry gptdata;
-              grub_partition_t p = dev->disk->partition;
-              dev->disk->partition = dev->disk->partition->parent;
-
-              if (grub_disk_read (dev->disk, p->offset, p->index,
-                                  sizeof (gptdata), &gptdata) == 0)
-                {
-                  grub_gpt_part_type_t gpttype;
-                  gpttype.data1 = grub_le_to_cpu32 (gptdata.type.data1);
-                  gpttype.data2 = grub_le_to_cpu16 (gptdata.type.data2);
-                  gpttype.data3 = grub_le_to_cpu16 (gptdata.type.data3);
-                  grub_memcpy (gpttype.data4, gptdata.type.data4, 8);
-
-                  grub_printf ("%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-                               gpttype.data1, gpttype.data2,
-                               gpttype.data3, gpttype.data4[0], 
-                               gpttype.data4[1], gpttype.data4[2],
-                               gpttype.data4[3], gpttype.data4[4],
-                               gpttype.data4[5], gpttype.data4[6],
-                               gpttype.data4[7]);
-                }
-              dev->disk->partition = p;
-            }
-          putchar (delim);
+	  probe_partition_type(dev->disk, "gpt", delim);
           grub_device_close (dev);
           continue;
         }

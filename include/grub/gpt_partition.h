@@ -31,24 +31,12 @@ struct grub_gpt_part_type
 } __attribute__ ((aligned(8)));
 typedef struct grub_gpt_part_type grub_gpt_part_type_t;
 
-#define GRUB_GPT_PARTITION_TYPE_EMPTY \
-  { 0x0, 0x0, 0x0, \
-    { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 } \
-  }
-
 #define GRUB_GPT_PARTITION_TYPE_BIOS_BOOT \
-  { grub_cpu_to_le32_compile_time (0x21686148), \
-      grub_cpu_to_le16_compile_time (0x6449), \
-      grub_cpu_to_le16_compile_time (0x6e6f),	       \
-    { 0x74, 0x4e, 0x65, 0x65, 0x64, 0x45, 0x46, 0x49 } \
-  }
-
+  "21686148-6449-6e6f-744e-656564454649"
 #define GRUB_GPT_PARTITION_TYPE_LDM \
-  { grub_cpu_to_le32_compile_time (0x5808C8AAU),\
-      grub_cpu_to_le16_compile_time (0x7E8F), \
-      grub_cpu_to_le16_compile_time (0x42E0),	       \
-	{ 0x85, 0xD2, 0xE1, 0xE9, 0x04, 0x34, 0xCF, 0xB3 }	\
-  }
+  "5808c8aa-7e8f-42e0-85d2-e1e90434cfb3"
+#define GRUB_GPT_PARTITION_TYPE_PREP \
+  "9e1a2d38-c612-4316-aa26-8b49521e5a8b"
 
 struct grub_gpt_header
 {

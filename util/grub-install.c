@@ -696,36 +696,12 @@ write_to_disk (grub_device_t dev, const char *fn)
 static int
 is_prep_partition (grub_device_t dev)
 {
-  if (!dev->disk)
-    return 0;
-  if (!dev->disk->partition)
-    return 0;
-  if (strcmp(dev->disk->partition->partmap->name, "msdos") == 0)
-    return (dev->disk->partition->msdostype == 0x41);
+  if (grub_partition_is_type (dev->disk, dev->disk->partition, "msdos", "41"))
+    return 1;
 
-  if (strcmp (dev->disk->partition->partmap->name, "gpt") == 0)
-    {
-      struct grub_gpt_partentry gptdata;
-      grub_partition_t p = dev->disk->partition;
-      int ret = 0;
-      dev->disk->partition = dev->disk->partition->parent;
-
-      if (grub_disk_read (dev->disk, p->offset, p->index,
-			  sizeof (gptdata), &gptdata) == 0)
-	{
-	  const grub_gpt_part_type_t template = {
-	    grub_cpu_to_le32_compile_time (0x9e1a2d38),
-	    grub_cpu_to_le16_compile_time (0xc612),
-	    grub_cpu_to_le16_compile_time (0x4316),
-	    { 0xaa, 0x26, 0x8b, 0x49, 0x52, 0x1e, 0x5a, 0x8b }
-	  };
-
-	  ret = grub_memcmp (&template, &gptdata.type,
-			     sizeof (template)) == 0;
-	}
-      dev->disk->partition = p;
-      return ret;
-    }
+  if (grub_partition_is_type (dev->disk, dev->disk->partition,
+			      "gpt", GRUB_GPT_PARTITION_TYPE_PREP))
+    return 1;
 
   return 0;
 }

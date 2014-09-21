@@ -33,11 +33,10 @@ static grub_uint8_t grub_gpt_magic[8] =
     0x45, 0x46, 0x49, 0x20, 0x50, 0x41, 0x52, 0x54
   };
 
-static const grub_gpt_part_type_t grub_gpt_partition_type_empty = GRUB_GPT_PARTITION_TYPE_EMPTY;
-
-#ifdef GRUB_UTIL
-static const grub_gpt_part_type_t grub_gpt_partition_type_bios_boot = GRUB_GPT_PARTITION_TYPE_BIOS_BOOT;
-#endif
+static const grub_gpt_part_type_t grub_gpt_partition_type_empty =
+  { 0x0, 0x0, 0x0,
+    { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 }
+  };
 
 /* 512 << 7 = 65536 byte sectors.  */
 #define MAX_SECTOR_LOG 7
@@ -128,6 +127,40 @@ grub_gpt_partition_map_iterate (grub_disk_t disk,
   return GRUB_ERR_NONE;
 }
 
+static grub_err_t
+grub_gpt_partition_type (grub_disk_t disk, const grub_partition_t partition,
+			 char **type)
+{
+  struct grub_gpt_partentry gptentry;
+  grub_gpt_part_type_t gpttype;
+  grub_partition_t p2;
+  grub_err_t err;
+
+  p2 = disk->partition;
+  disk->partition = partition->parent;
+  err = grub_disk_read (disk, partition->offset, partition->index,
+			sizeof (gptentry), &gptentry);
+  disk->partition = p2;
+
+  if (err)
+    return err;
+
+  gpttype.data1 = grub_le_to_cpu32 (gptentry.type.data1);
+  gpttype.data2 = grub_le_to_cpu16 (gptentry.type.data2);
+  gpttype.data3 = grub_le_to_cpu16 (gptentry.type.data3);
+  grub_memcpy (gpttype.data4, gptentry.type.data4, sizeof (gpttype.data4));
+
+  *type = grub_xasprintf ("%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+			  gpttype.data1, gpttype.data2,
+			  gpttype.data3, gpttype.data4[0],
+			  gpttype.data4[1], gpttype.data4[2],
+			  gpttype.data4[3], gpttype.data4[4],
+			  gpttype.data4[5], gpttype.data4[6],
+			  gpttype.data4[7]);
+
+  return GRUB_ERR_NONE;
+}
+
 #ifdef GRUB_UTIL
 /* Context for gpt_partition_map_embed.  */
 struct gpt_partition_map_embed_ctx
@@ -137,25 +170,14 @@ struct gpt_partition_map_embed_ctx
 
 /* Helper for gpt_partition_map_embed.  */
 static int
-find_usable_region (grub_disk_t disk __attribute__ ((unused)),
+find_usable_region (grub_disk_t disk,
 		    const grub_partition_t p, void *data)
 {
   struct gpt_partition_map_embed_ctx *ctx = data;
-  struct grub_gpt_partentry gptdata;
-  grub_partition_t p2;
-
-  p2 = disk->partition;
-  disk->partition = p->parent;
-  if (grub_disk_read (disk, p->offset, p->index,
-		      sizeof (gptdata), &gptdata))
-    {
-      disk->partition = p2;
-      return 0;
-    }
-  disk->partition = p2;
 
   /* If there's an embed region, it is in a dedicated partition.  */
-  if (! grub_memcmp (&gptdata.type, &grub_gpt_partition_type_bios_boot, 16))
+  if (grub_partition_is_type(disk, p, "gpt",
+			     GRUB_GPT_PARTITION_TYPE_BIOS_BOOT))
     {
       ctx->start = p->start;
       ctx->len = p->len;
@@ -215,6 +237,7 @@ static struct grub_partition_map grub_gpt_partition_map =
   {
     .name = "gpt",
     .iterate = grub_gpt_partition_map_iterate,
+    .type = grub_gpt_partition_type,
 #ifdef GRUB_UTIL
     .embed = gpt_partition_map_embed
 #endif

@@ -274,3 +274,26 @@ grub_partition_get_name (const grub_partition_t partition)
   grub_memmove (out, ptr + 1, out + needlen - ptr);
   return out;
 }
+
+int grub_partition_is_type (struct grub_disk *disk,
+			    const grub_partition_t partition,
+			    const char *partmap_name,
+			    const char *partition_type)
+{
+  char *type;
+  int r;
+
+  if (!disk || !partition || !partition->partmap->type)
+    return 0;
+
+  if (grub_strcmp (partition->partmap->name, partmap_name) != 0)
+    return 0;
+
+  if (partition->partmap->type(disk, partition, &type) != 0)
+    return 0;
+
+  r = grub_strcmp (type, partition_type);
+  grub_free (type);
+
+  return r == 0;
+}

@@ -135,31 +135,18 @@ msdos_has_ldm_partition (grub_disk_t dsk)
   return has_ldm;
 }
 
-static const grub_gpt_part_type_t ldm_type = GRUB_GPT_PARTITION_TYPE_LDM;
-
 /* Helper for gpt_ldm_sector.  */
 static int
 gpt_ldm_sector_iter (grub_disk_t disk, const grub_partition_t p, void *data)
 {
   grub_disk_addr_t *sector = data;
-  struct grub_gpt_partentry gptdata;
-  grub_partition_t p2;
 
-  p2 = disk->partition;
-  disk->partition = p->parent;
-  if (grub_disk_read (disk, p->offset, p->index,
-		      sizeof (gptdata), &gptdata))
-    {
-      disk->partition = p2;
-      return 0;
-    }
-  disk->partition = p2;
-
-  if (! grub_memcmp (&gptdata.type, &ldm_type, 16))
+  if (grub_partition_is_type (disk, p, "gpt", GRUB_GPT_PARTITION_TYPE_LDM))
     {
       *sector = p->start + p->len - 1;
       return 1;
     }
+
   return 0;
 }
 

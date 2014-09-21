@@ -228,6 +228,14 @@ grub_partition_msdos_iterate (grub_disk_t disk,
   return grub_errno;
 }
 
+static grub_err_t
+grub_partition_msdos_type (grub_disk_t disk __attribute__ ((unused)),
+			   const grub_partition_t partition, char **type)
+{
+  *type = grub_xasprintf ("%02x", partition->msdostype);
+  return GRUB_ERR_NONE;
+}
+
 #ifdef GRUB_UTIL
 
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
@@ -415,6 +423,7 @@ static struct grub_partition_map grub_msdos_partition_map =
   {
     .name = "msdos",
     .iterate = grub_partition_msdos_iterate,
+    .type = grub_partition_msdos_type,
 #ifdef GRUB_UTIL
     .embed = pc_partition_map_embed
 #endif

@@ -50,6 +50,13 @@ struct grub_partition_map
   /* Call HOOK with each partition, until HOOK returns non-zero.  */
   grub_err_t (*iterate) (struct grub_disk *disk,
 			 grub_partition_iterate_hook_t hook, void *hook_data);
+
+  /* Return the type of the partition PARTITION in TYPE.
+     The type is returned in a grub_malloc'ed buffer and should
+     be freed by the caller.  */
+  grub_err_t (*type) (struct grub_disk *disk,
+		      const grub_partition_t partition, char **type);
+
 #ifdef GRUB_UTIL
   /* Determine sectors available for embedding.  */
   grub_err_t (*embed) (struct grub_disk *disk, unsigned int *nsectors,
@@ -95,6 +102,10 @@ int EXPORT_FUNC(grub_partition_iterate) (struct grub_disk *disk,
 					 grub_partition_iterate_hook_t hook,
 					 void *hook_data);
 char *EXPORT_FUNC(grub_partition_get_name) (const grub_partition_t partition);
+int EXPORT_FUNC(grub_partition_is_type) (struct grub_disk *disk,
+					 const grub_partition_t partition,
+					 const char *partmap_name,
+					 const char *partition_type);
 
 
 extern grub_partition_map_t EXPORT_VAR(grub_partition_map_list);
