@@ -224,6 +224,7 @@ grub_gpt_header_check (struct grub_gpt_header *gpt,
 		       unsigned int log_sector_size)
 {
   grub_uint32_t crc = 0, size;
+  grub_uint64_t start, end;
 
   if (grub_memcmp (gpt->magic, grub_gpt_magic, sizeof (grub_gpt_magic)) != 0)
     return grub_error (GRUB_ERR_BAD_PART_TABLE, "invalid GPT signature");
@@ -244,6 +245,12 @@ grub_gpt_header_check (struct grub_gpt_header *gpt,
   size = grub_le_to_cpu32 (gpt->partentry_size);
   if (size < 128 || size % 128)
     return grub_error (GRUB_ERR_BAD_PART_TABLE, "invalid GPT entry size");
+
+  /* And of course there better be some space for partitions!  */
+  start = grub_le_to_cpu64 (gpt->start);
+  end = grub_le_to_cpu64 (gpt->end);
+  if (start > end)
+    return grub_error (GRUB_ERR_BAD_PART_TABLE, "invalid usable sectors");
 
   return GRUB_ERR_NONE;
 }
@@ -273,6 +280,12 @@ grub_gpt_check_primary (grub_gpt_t gpt)
 
   if (grub_gpt_header_check (&gpt->primary, gpt->log_sector_size))
     return grub_errno;
+  if (primary != 1)
+    return grub_error (GRUB_ERR_BAD_PART_TABLE, "invalid primary GPT LBA");
+  if (entries <= 1 || entries+entries_len > start)
+    return grub_error (GRUB_ERR_BAD_PART_TABLE, "invalid entries location");
+  if (backup <= end)
+    return grub_error (GRUB_ERR_BAD_PART_TABLE, "invalid backup GPT LBA");
 
   return GRUB_ERR_NONE;
 }
@@ -302,6 +315,12 @@ grub_gpt_check_backup (grub_gpt_t gpt)
 
   if (grub_gpt_header_check (&gpt->backup, gpt->log_sector_size))
     return grub_errno;
+  if (primary != 1)
+    return grub_error (GRUB_ERR_BAD_PART_TABLE, "invalid primary GPT LBA");
+  if (entries <= end || entries+entries_len > backup)
+    return grub_error (GRUB_ERR_BAD_PART_TABLE, "invalid entries location");
+  if (backup <= end)
+    return grub_error (GRUB_ERR_BAD_PART_TABLE, "invalid backup GPT LBA");
 
   return GRUB_ERR_NONE;
 }
@@ -353,6 +372,13 @@ grub_gpt_read_backup (grub_disk_t disk, grub_gpt_t gpt)
 
   if (grub_gpt_check_backup (gpt))
     return grub_errno;
+
+  /* Ensure the backup header thinks it is located where we found it.  */
+  if (grub_le_to_cpu64 (gpt->backup.header_lba) != sector)
+    return grub_error (GRUB_ERR_BAD_PART_TABLE, "invalid backup GPT LBA");
+
+  /* TODO: if primary is valid compare it to the backup and invalidate the
+   * backup is out of sync.  */
 
   gpt->status |= GRUB_GPT_BACKUP_HEADER_VALID;
   return GRUB_ERR_NONE;
